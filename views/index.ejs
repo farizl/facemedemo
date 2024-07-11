@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="style.css" rel="stylesheet" type="text/css">
+    <title>Demo Liveness</title>
+</head>
+<body>
+    <h1 class="header">Liveness & Face Compare Demo</h1>
+    <div class="button">
+        <button>Liveness Detect</button>
+        <button>Face Compare</button>
+        <button>E-KYC ID Card</button>
+    </div>
+    <div class="liveness" id="root"></div>
+    <script>
+        (function(document,script){
+            let sdk = document.createElement(script);
+            sdk.type = 'text/javascript';
+            sdk.async = true;
+            sdk.src = 'sdk/faceme-web-sdk.js';
+            let firstscript = document.getElementsByTagName(script)[0];
+            firstscript.parentNode.insertBefore(sdk,firstscript);
+        })(document,'script');
+
+        window.facemeAsyncInit = () => {
+            FaceMe.init(()=>console.log("init success"),(err)=>console.log(err));
+            setTimeout(()=>{
+                FaceMe.startAntiSpoofing({
+                sdkBlockId:'root'
+            },{},(detail, spoofingcheckImages, clearImage)=>{
+                console.log(detail);
+                console.log(spoofingcheckImages);
+                console.log(clearImage);
+            },(err)=>console.log(err));
+            },1000)
+            
+        }
+    </script>
+</body>
+</html>
