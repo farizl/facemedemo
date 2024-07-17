@@ -7,14 +7,75 @@
     <title>Demo Liveness</title>
 </head>
 <body>
-    <h1 class="header">Liveness & Face Compare Demo</h1>
-    <div class="button">
-        <button>Liveness Detect</button>
-        <button>Face Compare</button>
-        <button>E-KYC ID Card</button>
-    </div>
-    <div class="liveness" id="root"></div>
+    <h1 class="header">E-KYC Testing</h1>
+    <main>
+        <button onclick="capture()" id="start">Start Testing</button>
+        <!-- This is Capture Image Module 
+        ===== Start Here ======== -->
+        <div class="capture" id="capture">
+            <div class="camera" id="camera">
+                <video id="video">Video stream not available.</video>
+                <button onclick="takepic()" id="takephoto">Take photo</button>
+            </div>
+            <canvas id="canvas"> </canvas>
+            <div class="output" id="output">
+                <img id="photo" alt="The screen capture will appear in this box." />
+            </div>
+        </div>
+        <!-- ===== End Here ======== -->
+        <div class="liveness" id="liveness"></div>
+        <div class="result" id="divresult">
+            <em><h1 id="result"></h1></em>
+        </div>
+        <div id="spinner"></div>
+        <div class="btn">
+            <button id="back" onclick="restart()">Restart</button>
+            <button id="next" onclick="liveness()">Next</button>
+        </div>
+       
+
+    </main>
     <script>
+        let msg;
+        //Server url
+        const url = "https://192.168.1.156:3000";
+        //Capture image variable
+        let width = 480;    // We will scale the photo width to this
+        let height = 0;     // This will be computed based on the input stream
+        let streaming = false;
+        let video = null;
+        let canvas = null;
+        let photo = null;
+        let takephoto = null;
+        //End Here
+        let camera = document.getElementById("camera");
+        let output = document.getElementById("output");
+        video = document.getElementById('video');
+        canvas = document.getElementById('canvas');
+        photo = document.getElementById('photo');
+        takephoto = document.getElementById('takephoto');
+        
+        let isShowLiveness = false;
+        let isShowCapture = false;
+        let captureModule = document.getElementById("capture");
+        let livenessModule = document.getElementById("liveness");
+        let backBtn = document.getElementById("back");
+        let nextBtn = document.getElementById("next");
+        let startBtn = document.getElementById("start");
+        let divresult = document.getElementById("divresult");
+        let Result = document.getElementById("result");
+        let Spin = document.getElementById("spinner");
+
+        //Setting Style for hidden and showing
+        livenessModule.style.display = "none";
+        captureModule.style.display = "none";
+        backBtn.style.display = "none";
+        nextBtn.style.display = "none";
+        canvas.style.display = "none";
+        divresult.style.display = "none";
+        Spin.style.display = "none";
+
+        //function start Faceme Web SDK
         (function(document,script){
             let sdk = document.createElement(script);
             sdk.type = 'text/javascript';
@@ -24,19 +85,182 @@
             firstscript.parentNode.insertBefore(sdk,firstscript);
         })(document,'script');
 
+        //Init Faceme SDK
         window.facemeAsyncInit = () => {
             FaceMe.init(()=>console.log("init success"),(err)=>console.log(err));
+        }
+
+
+
+        // function for capture image
+        function capture(){ 
+            startBtn.style.display = "none";
+            captureModule.style.display = "flex";
+            output.style.display = "none";
+            //Check that camera support or not
+            if ('mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices) {
+                console.log("Let's get this party started")
+            }else{
+                console.log("No camera support");
+            }
+            //Capture image
+            navigator.mediaDevices.getUserMedia({ video: {
+                facingMode:'environment'
+            }, audio: false }).then((stream) => {
+                video.srcObject = stream;
+                video.play();
+            }).catch((err) => {
+                console.error(`An error occurred: ${err}`);
+            });
+
+            video.addEventListener("canplay",(ev) => {
+                if (!streaming) {
+                    height = (video.videoHeight / video.videoWidth) * width;
+                    video.setAttribute("width", width);
+                    video.setAttribute("height", height);
+                    canvas.setAttribute("width", width);
+                    canvas.setAttribute("height", height);
+                    streaming = true;
+                }},false,);
+        }
+
+        //function take photo
+        function takepic(){
+            camera.style.display = "none";
+            output.style.display = "flex";
+            nextBtn.style.display = "block";
+            backBtn.style.display = "block";
+            const context = canvas.getContext("2d");
+            if (width && height) {
+                canvas.width = width;
+                canvas.height = height;
+                context.drawImage(video, 0, 0, width, height);
+                const data = canvas.toDataURL("image/png");
+                let base64Array = data.split(",");
+                photo.setAttribute("src", data);
+                console.log(b64toBlob(base64Array[1]));
+                let body = new FormData();
+                body.append("img",b64toBlob(base64Array[1]));
+                fetch(url+"/capture",{
+                    method:"POST",
+                    body:body
+                }).then((res)=>console.log(res)).catch((err)=>console.log(err))
+                clearStream();
+            } else {
+                clearphoto();
+            }
+        }
+
+        //function for convert base64toBlob
+        function b64toBlob(b64Data){
+            const byteCharacters = atob(b64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray],{type: "image/jpeg"});
+            return blob;
+        }
+
+        //function used for clearPhoto
+        function clearphoto(){
+            const context = canvas.getContext("2d");
+            context.fillStyle = "#AAA";
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            const data = canvas.toDataURL("image/png");
+            photo.setAttribute("src", data);
+        }
+
+        //function used for clear stream
+        function clearStream(){
+            const tracks = video.srcObject.getTracks();
+            tracks.forEach((track) => {
+                track.stop();
+            });
+            video.srcObject = null;
+        }
+
+        // function for start liveness
+        function liveness()
+        {
+            livenessModule.style.display = "block";
+            captureModule.style.display = "none";
+            backBtn.style.display = "none";
+            nextBtn.style.display = "none";
             setTimeout(()=>{
                 FaceMe.startAntiSpoofing({
-                sdkBlockId:'root'
-            },{},(detail, spoofingcheckImages, clearImage)=>{
-                console.log(detail);
-                console.log(spoofingcheckImages);
-                console.log(clearImage);
-            },(err)=>console.log(err));
+                    sdkBlockId:'liveness',
+                    frontSetting:{},
+                    rightSetting:{},
+                    enableStrictMode:false,
+                    fontStyle:{
+                    },
+                    debug:false
+                },{
+                    antiSpoofingType:"TWO_STAGES_WITH_RANDOM_ACTIONS",
+                    precisionLevel:"fast",
+                    raNum:2,
+                    raNodEnable:false
+                },(detail,spoofingcheckImages,clearImage)=>{
+                    let form = new FormData();
+                    console.log(detail);
+                    console.log(spoofingcheckImages);
+                    console.log(clearImage);
+                    form.append('detail',JSON.stringify(detail));
+                    for(const s in spoofingcheckImages){
+                        spoofingcheckImages[s].forEach((element)=>{
+                            form.append(`${s}`,element);
+                        })
+                    }
+                    form.append('clearImage',clearImage[0]);
+                    //API for Liveness
+                    Spin.style.display="block"
+                    fetch(url+"/liveness",{
+                        method:"POST",
+                        body: form
+                    }).then((res)=>{
+                        return res.json();
+                    }).then((data)=>{
+                        //backBtn.style.display = "none";
+                        //nextBtn.style.display = "none";
+                        console.log(data);
+                        if(data.similarity !== undefined){
+                            if(data.similarity >= 0.75){
+                                msg = "Result : Mathing Pass Same Person";
+                                showResult(msg);
+                            }else{
+                                msg = "Result : Matching Fail Different Person"
+                                showResult(msg);
+                            }
+                        }else if(data.livenessScore !== undefined){
+                            msg = "Liveness score is too low."
+                            showResult(msg);
+                        }else{
+                            msg = `Error : ${data.errorMessage}`
+                            showResult(msg);
+                        }
+                        
+                    }).catch((err)=>{
+                        console.log(err);
+                    })
+                },(err)=>console.log(err))
             },1000)
             
         }
+
+        //function show result
+        function showResult(data){
+            divresult.style.display = "flex";
+            backBtn.style.display = "block";
+            Spin.style.display="none"
+            Result.innerHTML = data;
+        }
+
+        function restart(){
+            window.location.reload();
+        }
+
     </script>
 </body>
 </html>
