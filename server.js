@@ -20,6 +20,7 @@ const matching_path = "/api/v1/face/compare/image";
 const gettoken_path = "/api/v1/api_key/auth"
 const app = express();
 const port = process.env.PORT;
+const HTTPSport = process.env.HTTPSPORT;
 const storage = multer.memoryStorage()
 const upload = multer({ storage: storage })
 const options={
@@ -91,7 +92,7 @@ app.post("/liveness",upload.any(),async (req,res)=>{
         if(response.data.livenessScore >= 0.4){
             //res.redirect("/matching");
             try{
-                axios.get("https://localhost:3000/matching",{
+                axios.get(`https://localhost:${HTTPSport}/matching`,{
                     httpsAgent
                 }).then((r)=>{
                     res.json(r.data);
@@ -134,9 +135,12 @@ app.get("/matching",async (req,res)=>{
     }
 })
 
+app.listen(port,()=>{
+    console.log(`http://localhost${port}`);
+})
 
 const sslServer = https.createServer(options,app);
-sslServer.listen(port,()=>{
-console.log('https://localhost:3000')
+sslServer.listen(HTTPSport,()=>{
+console.log(`https://localhost:${HTTPSport}`)
 })
 
