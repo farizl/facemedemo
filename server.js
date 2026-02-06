@@ -14,7 +14,7 @@ const httpsAgent = new https.Agent({
     rejectUnauthorized: false,
     cert: fs.readFileSync(path.join('./cert/cert.pem')),
 });
-const url = "http://ekyc.honorsupplying.com:7500";
+const url = "https://ekyc.honorsupplying.com";
 const liveness_path = "/api/v1/anti_spoofing/spoofingcheck_two_stage";
 const matching_path = "/api/v1/face/compare/image";
 const app = express();
